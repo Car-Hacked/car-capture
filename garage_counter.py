@@ -1,4 +1,6 @@
 import argparse
+import requests
+
 parser = argparse.ArgumentParser()
 parser.add_argument("garage_id", help="The id for the garage.", type=int)
 parser.add_argument("-c", "--capacity", help="The total capacity of the garage. Default of 100.", type=int)
@@ -9,6 +11,7 @@ args = parser.parse_args()
 # Fills Garage information with given info. Garage id is required and capacity will default to 100.
 garage_id = args.garage_id
 capacity = 100
+
 if args.capacity:
     capacity = args.capacity
 
@@ -18,6 +21,18 @@ if args.fill:
 else:
     spaces_filled = 0
     available_spaces = capacity - spaces_filled
+
+api = "https://park-a-lot.herokuapp.com/api/v1/garages"
+r = requests.get(api).json()
+garages = [garage for garage in r]
+print(garages)
+
+select = input("Select garage:")
+garage = garages[int(select)]
+garage_id = garage["garageNumber"]
+capacity = garage["capacity"]
+spaces_filled = garage["carsInLot"]
+available_spaces = capacity - spaces_filled
 
 
 def print_info():
