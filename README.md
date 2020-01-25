@@ -1,6 +1,6 @@
 # Car Capture
 
-HackMT 2020. Team Sauceybois.
+HackMT 2020. Car Hacked.
 
 This is the repo for capturing car data.
 
