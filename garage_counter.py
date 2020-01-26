@@ -1,15 +1,21 @@
 import requests
+import api
 
-api = "https://park-a-lot.herokuapp.com/api/v1/garages"
-r = requests.get(api).json()
-garages = [garage for garage in r]
-print(garages)
+
+list_of_garages = []
+for garage in api.get_garages():
+    i = 1
+    name = garage.name
+    print(f"{i} - {name}")
+    i += 1
 
 select = input("Select garage:")
-garage = garages[int(select)]
-garage_id = garage["garageNumber"]
-capacity = garage["capacity"]
-spaces_filled = garage["carsInLot"]
+garage = api.get_garages()[int(select) - 1]
+print(garage.name)
+
+garage_id = garage.name
+capacity = garage.capacity
+spaces_filled = garage.cars_in_lot
 available_spaces = capacity - spaces_filled
 
 
