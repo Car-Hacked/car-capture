@@ -20,6 +20,7 @@ import imutils
 import time
 import dlib
 import cv2
+import api
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -36,6 +37,11 @@ ap.add_argument("-c", "--confidence", type=float, default=0.2,
 ap.add_argument("-s", "--skip-frames", type=int, default=10,
 	help="# of skip frames between detections")
 args = vars(ap.parse_args())
+
+select = input("Select garage:")
+garage = api.get_garages()[int(select)]
+
+available_spaces = garage.capacity - garage.cars_in_lot
 
 # initialize the list of class labels MobileNet SSD was trained to
 # detect
@@ -77,8 +83,8 @@ trackableObjects = {}
 # initialize the total number of frames processed thus far, along
 # with the total number of objects that have moved either up or down
 totalFrames = 0
-totalDown = 0
-totalUp = 0
+totalIn = 0
+totalOut = 0
 
 # start the frames per second throughput estimator
 fps = FPS().start()
@@ -144,7 +150,6 @@ while True:
 				# detections list
 				idx = int(detections[0, 0, i, 1])
 
-				print(CLASSES[idx])
 				# if the class label is not a car, ignore it
 				if CLASSES[idx] != "car":
 					continue
@@ -224,16 +229,24 @@ while True:
 				# line, count the object
 				# TODO: switch to API call
 				if direction < 0 and centroid[1] < H // 2:
-					totalUp += 1
+					totalOut += 1
 					to.counted = True
+					if available_spaces < garage.capacity:
+						garage.cars_in_lot -= 1
+						available_spaces += 1
+						api.put_garage(garage)
 
 				# if the direction is positive (indicating the object
 				# is moving down) AND the centroid is below the
 				# center line, count the object
 				# TODO: switch to API call
 				elif direction > 0 and centroid[1] > H // 2:
-					totalDown += 1
+					totalIn += 1
 					to.counted = True
+					if garage.cars_in_lot < garage.capacity:
+						garage.cars_in_lot += 1
+						available_spaces -= 1
+						api.put_garage(garage)
 
 		# store the trackable object in our dictionary
 		trackableObjects[objectID] = to
@@ -248,8 +261,9 @@ while True:
 	# construct a tuple of information we will be displaying on the
 	# frame
 	info = [
-		("Up", totalUp),
-		("Down", totalDown),
+		("Out", totalOut),
+		("In", totalIn),
+		("Available", available_spaces),
 		("Status", status),
 	]
 
