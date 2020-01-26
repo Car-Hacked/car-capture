@@ -3,14 +3,27 @@ import api
 
 
 list_of_garages = []
+i = 1
 for garage in api.get_garages():
-    i = 1
     name = garage.name
     print(f"{i} - {name}")
     i += 1
 
 select = input("Select garage:")
-garage = api.get_garages()[int(select) - 1]
+range_of = range(len(api.get_garages()))
+while True:
+    try:
+        select = int(select) - 1
+        if select not in range_of:
+            print("Input must be one of the listed numbers")
+            select = input("Select garage:")
+        else:
+            break
+    except ValueError:
+        print("Input must be one of the listed numbers")
+        select = input("Select garage:")
+
+garage = api.get_garages()[select]
 print(garage.name)
 
 garage_id = garage.name
