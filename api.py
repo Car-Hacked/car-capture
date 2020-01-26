@@ -1,23 +1,22 @@
 import requests
+import json
 
-base_url = 'https://park-hack-api.herokuapp.com/garages'
+base_url = 'https://park-a-lot.herokuapp.com/api/v1/garages/'
+headers = {'content-type': 'application/json'}
 
 
 class Garage:
     def __init__(self, garage):
         self.id = garage['_id']
-        self.name = garage['name']
-        self.location = garage['location']
+        self.name = garage['garageName']
+        self.address = garage['address']
         self.capacity = garage['capacity']
         self.cars_in_lot = garage['carsInLot']
 
     def to_dict(self):
         return {
             '_id': self.id,
-            'name': self.name,
-            'location': self.location,
-            'carsInLot': int(self.cars_in_lot),
-            'capacity': int(self.capacity)
+            'carsInLot': int(self.cars_in_lot)
         }
 
 
@@ -30,6 +29,6 @@ def get_garages():
 
 
 def put_garage(garage: Garage):
-    requests.put(base_url + '/' + garage.id, data=garage.to_dict())
-
+    payload = json.dumps(garage.to_dict())
+    requests.patch(base_url, headers=headers, data=payload)
 
