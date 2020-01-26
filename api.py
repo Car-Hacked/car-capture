@@ -33,5 +33,3 @@ def put_garage(garage: Garage):
     requests.put(base_url + '/' + garage.id, data=garage.to_dict())
 
 
-for garage in get_garages():
-    print(garage.id)
