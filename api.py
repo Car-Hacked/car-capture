@@ -2,7 +2,7 @@ import requests
 import json
 
 base_url = 'https://park-a-lot.herokuapp.com/api/v1/garages/'
-headers = {'content-type': 'application/json'}
+headers = {'content-type': 'application/json', 'accesstoken': ''}
 
 
 class Garage:
