@@ -1,0 +1,22 @@
+[packages]
+certifi = "*"
+chardet = "*"
+dlib = "*"
+idna = "*"
+imutils = "*"
+requests = "*"
+scipy = "*"
+urllib3 = "*"
+numpy = "*"
+python-socketio = {extras = ["client"], version = "*"}
+opencv-contrib-python = "*"
+flask = "*"
+flask-cors = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.10"
+
+[scripts]
+start = "python ./carhacker.py"

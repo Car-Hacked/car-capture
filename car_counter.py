@@ -22,6 +22,7 @@ import dlib
 import cv2
 import api
 
+
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--prototxt", required=True,
@@ -32,36 +33,36 @@ ap.add_argument("-i", "--input", type=str,
                 help="path to optional input video file")
 ap.add_argument("-o", "--output", type=str,
                 help="path to optional output video file")
-ap.add_argument("-c", "--confidence", type=float, default=0.2,
+ap.add_argument("-c", "--confidence", type=float, default=0.6,
                 help="minimum probability to filter weak detections")
-ap.add_argument("-s", "--skip-frames", type=int, default=10,
+ap.add_argument("-s", "--skip-frames", type=int, default=2,
                 help="# of skip frames between detections")
 args = vars(ap.parse_args())
 
 list_of_garages = api.get_garages()
-i = 1
-for garage in list_of_garages:
-    name = garage.name
-    print(f"{i} - {name}")
-    i += 1
+# i = 1
+# for garage in list_of_garages:
+#     name = garage.name
+#     print(f"{i} - {name}")
+#     i += 1
 
-select = input("Select garage: ")
-range_of = range(len(list_of_garages))
-while True:
-    try:
-        select = int(select) - 1
-        if select not in range_of:
-            print("Input must be one of the listed numbers")
-            select = input("Select garage: ")
-        else:
-            break
-    except ValueError:
-        print("Input must be one of the listed numbers")
-        select = input("Select garage: ")
+# select = input("Select garage: ")
+# range_of = range(len(list_of_garages))
+# while True:
+#     try:
+#         select = int(select) - 1
+#         if select not in range_of:
+#             print("Input must be one of the listed numbers")
+#             select = input("Select garage: ")
+#         else:
+#             break
+#     except ValueError:
+#         print("Input must be one of the listed numbers")
+#         select = input("Select garage: ")
 
-garage = list_of_garages[select]
+garage = next(garage for garage in list_of_garages if garage.name == 'Johnson')
 print(garage.name)
-garage = api.get_garages()[int(select)]
+# garage = list_of_garages[int(select)]
 
 available_spaces = garage.capacity - garage.cars_in_lot
 
@@ -80,7 +81,6 @@ net = cv2.dnn.readNetFromCaffe(args["prototxt"], args["model"])
 if not args.get("input", False):
     print("[INFO] starting video stream...")
     vs = VideoStream(src=0).start()
-    time.sleep(2.0)
 
 # otherwise, grab a reference to the video file
 else:
@@ -98,7 +98,7 @@ H = None
 # instantiate our centroid tracker, then initialize a list to store
 # each of our dlib correlation trackers, followed by a dictionary to
 # map each unique object ID to a TrackableObject
-ct = CentroidTracker(maxDisappeared=40, maxDistance=60)
+ct = CentroidTracker(maxDisappeared=10, maxDistance=60)
 trackers = []
 trackableObjects = {}
 
@@ -109,7 +109,7 @@ totalIn = 0
 totalOut = 0
 
 # start the frames per second throughput estimator
-fps = FPS().start()
+# fps = FPS().start()
 
 # loop over frames from the video stream
 while True:
@@ -121,7 +121,13 @@ while True:
     # if we are viewing a video and we did not grab a frame then we
     # have reached the end of the video
     if args["input"] is not None and frame is None:
-        break
+        # otherwise, grab a reference to the video file
+        if args.get("input", False):
+            totalFrames = 0
+            totalIn = 0
+            totalOut = 0
+            vs.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        continue
 
     # resize the frame to have a maximum width of 500 pixels (the
     # less data we have, the faster we can process it), then convert
@@ -173,7 +179,7 @@ while True:
                 idx = int(detections[0, 0, i, 1])
 
                 # if the class label is not a car, ignore it
-                if CLASSES[idx] != "car":
+                if (CLASSES[idx] != "car") and (CLASSES[idx] != "bus"):
                     continue
 
                 # compute the (x, y)-coordinates of the bounding box
@@ -269,6 +275,11 @@ while True:
                         garage.cars_in_lot += 1
                         available_spaces -= 1
                         api.put_garage(garage)
+                    elif garage.cars_in_lot == garage.capacity:
+                        garage.cars_in_lot = 1
+                        available_spaces = garage.capacity - 1
+                        api.put_garage(garage)
+                        
 
         # store the trackable object in our dictionary
         trackableObjects[objectID] = to
@@ -310,12 +321,12 @@ while True:
     # increment the total number of frames processed thus far and
     # then update the FPS counter
     totalFrames += 1
-    fps.update()
+    # fps.update()
 
 # stop the timer and display FPS information
-fps.stop()
-print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
-print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+# fps.stop()
+# print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
+# print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 
 # check to see if we need to release the video writer pointer
 if writer is not None:
@@ -331,3 +342,4 @@ else:
 
 # close any open windows
 cv2.destroyAllWindows()
+api.sio.disconnect()
