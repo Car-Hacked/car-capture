@@ -10,7 +10,7 @@ ENV PYTHONFAULTHANDLER 1
 FROM base AS python-deps
 WORKDIR /home/app
 
-RUN apt-get update && apt-get install -y gcc, build-essentials
+RUN apt-get update && apt-get install -y build-essentials
 COPY Pipfile .
 COPY Pipfile.lock .
 RUN python -m pip install --upgrade pip
