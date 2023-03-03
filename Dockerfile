@@ -10,25 +10,20 @@ ENV PYTHONFAULTHANDLER 1
 FROM base AS python-deps
 WORKDIR /home/app
 
-RUN pip install pipenv
-RUN apt-get update && apt-get install -y --no-install-recommends gcc
-
+RUN apt-get update && apt-get install -y gcc, build-essentials
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy
+RUN python -m pip install --upgrade pip
+RUN pip install pipenv && pipenv install --dev --system --deploy
 
 FROM base AS runtime
-
-# Copy virtual env from python-deps stage
-COPY --from=python-deps /.venv /.venv
-ENV PATH="/.venv/bin:$PATH"
-
 # Create and switch to a new user
 WORKDIR /home/app
-
 # Install application into container
 COPY . .
+RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser ./
+USER appuser
 
 # Run the application
 EXPOSE 5000
-CMD ["pipenv", "run start"]
+CMD ["pipenv", "run", "start"]
