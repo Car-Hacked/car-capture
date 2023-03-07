@@ -339,7 +339,7 @@ if __name__ == "__main__":
   t = threading.Thread(target=gen_frames)
   t.daemon = True
   t.start()
-  app.run(debug=True, threaded=True, use_reloader=False)
+  app.run(debug=True, threaded=True, use_reloader=False, host='0.0.0.0')
 
 if vs is not None:
   if input:
