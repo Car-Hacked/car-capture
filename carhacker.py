@@ -1,7 +1,4 @@
-from flask import Flask, render_template, Response
-from flask_cors import CORS
 import api
-import threading
 import cv2
 from pyimagesearch.centroidtracker import CentroidTracker
 from pyimagesearch.trackableobject import TrackableObject
@@ -11,14 +8,20 @@ import imutils
 import dlib
 import argparse
 import time
+import threading
+from flask import Flask, render_template, Response
+from flask_cors import CORS
+import socketio
+
+
 
 outputFrame = None
 lock = threading.Lock()
 
-
-#Initialize the Flask app
+sio = socketio.Server(async_mode="threading", cors_allowed_origins="*", host="0.0.0.0", port=5000)
 app = Flask(__name__)
 CORS(app)
+app.wsgi_app = socketio.Middleware(sio, app.wsgi_app)
 
 vs = None
 input = None
@@ -271,50 +274,46 @@ def gen_frames(prototxt:str='./mobilenet_ssd/MobileNetSSD_deploy.prototxt', mode
             writer.write(frame)
             
         with lock:
-          outputFrame = frame.copy()  
-          
-        key = cv2.waitKey(1) & 0xFF
-
-        # if the `q` key was pressed, break from the loop
-        if key == ord("q"):
-            break
-
+            outputFrame = frame.copy()
+            (flag, encodedImage) = cv2.imencode(".jpg", outputFrame)
+            if flag:
+                sio.emit('frame', encodedImage.tobytes())
         # increment the total number of frames processed thus far
         totalFrames += 1
 
     # check to see if we need to release the video writer pointer
     if writer is not None:
         writer.release()
+        
 
-def generate():
-  # grab global references to the output frame and lock variables
-  global outputFrame, lock
-  # loop over frames from the output stream
-  while True:
-    # wait until the lock is acquired
-    with lock:
-      # check if the output frame is available, otherwise skip
-      # the iteration of the loop
-      if outputFrame is None:
-        continue
-      # encode the frame in JPEG format
-      (flag, encodedImage) = cv2.imencode(".jpg", outputFrame)
-      # ensure the frame was successfully encoded
-      if not flag:
-        continue
-    # yield the output frame in the byte format
-    yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
-      bytearray(encodedImage) + b'\r\n')
+# Uncomment for flask server integration
+# def generate():
+#   # grab global references to the output frame and lock variables
+#   global outputFrame, lock
+#   # loop over frames from the output stream
+#   while True:
+#     # wait until the lock is acquired
+#     with lock:
+#       # check if the output frame is available, otherwise skip
+#       # the iteration of the loop
+#       if outputFrame is None:
+#         continue
+#       # encode the frame in JPEG format
+#       (flag, encodedImage) = cv2.imencode(".jpg", outputFrame)
+#       # ensure the frame was successfully encoded
+#       if not flag:
+#         continue
+#     # yield the output frame in the byte format
+#     yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
+#       bytearray(encodedImage) + b'\r\n')
 
-@app.route('/')
-def index():
-  return render_template('index.html')
+# @app.route('/')
+# def index():
+#   return render_template('index.html')
   
-@app.route('/video_feed')
-def video_feed():
-  return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
+# @app.route('/video_feed')
+# def video_feed():
+#   return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
  
 if __name__ == "__main__":
   # construct the argument parser and parse command line arguments
@@ -339,11 +338,11 @@ if __name__ == "__main__":
   t = threading.Thread(target=gen_frames)
   t.daemon = True
   t.start()
-  app.run(debug=True, threaded=True, use_reloader=False, host='0.0.0.0')
+  app.run(threaded=True, host='0.0.0.0', port=5000)
+  
 
 if vs is not None:
   if input:
     vs.release()
   else:
     vs.stop()
-api.sio.disconnect()

@@ -8,10 +8,12 @@ requests = "*"
 scipy = "*"
 urllib3 = "*"
 numpy = "*"
-python-socketio = {extras = ["client"], version = "*"}
 opencv-contrib-python = "*"
+python-socketio = {extras = ["client"], version = "*"}
 flask = "*"
+eventlet = "*"
 flask-cors = "*"
+gunicorn = "*"
 
 [dev-packages]
 
