@@ -25,16 +25,12 @@ while True:
 
 garage = list_of_garages[select]
 print(garage.name)
-
-garage_id = garage.name
-capacity = garage.capacity
-spaces_filled = garage.cars_in_lot
-available_spaces = capacity - spaces_filled
+available_spaces = garage.capacity - garage.cars_in_lot
 
 
 def print_info():
-    print("Garage id: " + str(garage_id))
-    print("Spaces filled: " + str(spaces_filled))
+    print("Garage id: " + str(garage.id))
+    print("Spaces filled: " + str(garage.cars_in_lot))
     print("Available spaces: " + str(available_spaces))
 
 
@@ -47,21 +43,25 @@ q: quit and print analytics
         Enter input:""")
 
     if name == '1':
-        if spaces_filled == capacity:
-            print("The garage is full")
+        if garage.cars_in_lot == garage.capacity:
+            garage.cars_in_lot = 1
+            available_spaces = garage.capacity - 1
             continue
-        if spaces_filled < capacity:
-            spaces_filled += 1
+        if garage.cars_in_lot < garage.capacity:
+            garage.cars_in_lot += 1
             available_spaces -= 1
             print_info()
+            continue
     elif name == '2':
-        if available_spaces == capacity:
+        if available_spaces == garage.capacity:
             print_info()
             continue
-        if available_spaces < capacity:
-            spaces_filled -= 1
+        if available_spaces < garage.capacity:
+            garage.cars_in_lot -= 1
             available_spaces += 1
             print_info()
+            continue
+            
     elif name == 'q':
         print_info()
         break

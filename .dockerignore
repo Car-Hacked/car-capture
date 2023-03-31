@@ -1,0 +1,8 @@
+# flyctl launch added from .gitignore
+**/venv
+**/.env
+**/.idea
+**/__pycache__
+**/pyimagesearch/__pycache__
+**/videos/cars_real_2.mp4
+fly.toml

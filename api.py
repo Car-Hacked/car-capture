@@ -1,9 +1,10 @@
 import requests
-import json
+import socketio
 
-base_url = 'https://park-a-lot.herokuapp.com/api/v1/garages/'
-headers = {'content-type': 'application/json', 'accesstoken': ''}
+base_url = 'https://carhackedapi-timothyagass.b4a.run/api/v1/garages/'
 
+sio = socketio.Client()
+sio.connect('https://carhackedapi-timothyagass.b4a.run')
 
 class Garage:
     def __init__(self, garage):
@@ -19,6 +20,8 @@ class Garage:
             'carsInLot': int(self.cars_in_lot)
         }
 
+def put_garage(garage: Garage):
+    sio.emit('garageUpdate', garage.to_dict())
 
 def get_garages():
     resp = requests.get(base_url)
@@ -26,9 +29,4 @@ def get_garages():
     for g in resp.json():
         garages.append(Garage(g))
     return garages
-
-
-def put_garage(garage: Garage):
-    payload = json.dumps(garage.to_dict())
-    requests.patch(base_url, headers=headers, data=payload)
 
