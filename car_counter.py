@@ -1,4 +1,9 @@
 # USAGE
+# To read from video:
+# python car_counter.py --prototxt mobilenet_ssd/MobileNetSSD_deploy.prototxt \
+# --model mobilenet_ssd/MobileNetSSD_deploy.caffemodel \
+# --input videos/cars_real_2.mp4 
+#
 # To read and write back out to video:
 # python car_counter.py --prototxt mobilenet_ssd/MobileNetSSD_deploy.prototxt \
 #	--model mobilenet_ssd/MobileNetSSD_deploy.caffemodel --input videos/cars_real_2.mp4 \
