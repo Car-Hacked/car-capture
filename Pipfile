@@ -6,8 +6,9 @@ scipy = "*"
 numpy = "*"
 flask = "*"
 flask-cors = "*"
-python-socketio = "*"
 opencv-contrib-python= "*"
+python-socketio = {extras = ["client"], version = "*"}
+gunicorn = "*"
 
 [dev-packages]
 
