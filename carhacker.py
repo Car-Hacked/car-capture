@@ -1,33 +1,62 @@
-import api
 import cv2
+import numpy as np
 from pyimagesearch.centroidtracker import CentroidTracker
 from pyimagesearch.trackableobject import TrackableObject
+from flask import Flask, render_template, Response, redirect, url_for
 from imutils.video import VideoStream
-import numpy as np
-import imutils
-import dlib
-import argparse
-import time
-import threading
-from flask import Flask, render_template, Response
 from flask_cors import CORS
 import socketio
+import logging
+import argparse
+import api
+import time
+import imutils
+import threading
+import dlib
 
-
-
-outputFrame = None
-lock = threading.Lock()
 
 sio = socketio.Server(async_mode="threading", cors_allowed_origins="*", host="0.0.0.0", port=5000)
 app = Flask(__name__)
 CORS(app)
 app.wsgi_app = socketio.Middleware(sio, app.wsgi_app)
 
-vs = None
-input = None
+global lock, subscribers
+lock = threading.Lock()
+subscribers = []
+outputFrame = None
 
-def gen_frames(prototxt:str='./mobilenet_ssd/MobileNetSSD_deploy.prototxt', model:str='./mobilenet_ssd/MobileNetSSD_deploy.caffemodel', output:str=None, confidence:float=0.4, skip_frames:int=2):
-    global outputFrame, lock, vs, input
+vs = cv2.VideoCapture("./videos/cars_real.mp4")
+
+logging.basicConfig(level=logging.INFO)
+        
+
+# Uncomment for flask server integration
+# def generate():
+#   # grab global references to the output frame and lock variables
+#   global outputFrame, lock
+#   # loop over frames from the output stream
+#   while True:
+#     # wait until the lock is acquired
+#     with lock:
+#       # check if the output frame is available, otherwise skip
+#       # the iteration of the loop
+#       if outputFrame is None:
+#         continue
+#       # encode the frame in JPEG format
+#       (flag, encodedImage) = cv2.imencode(".jpg", outputFrame)
+#       # ensure the frame was successfully encoded
+#       if not flag:
+#         continue
+#     # yield the output frame in the byte format
+#     yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
+#       bytearray(encodedImage) + b'\r\n')
+
+# @app.route('/')
+# def index():
+#   return render_template('index.html') 
+
+def gen_frames(prototxt:str='./mobilenet_ssd/MobileNetSSD_deploy.prototxt', model:str='./mobilenet_ssd/MobileNetSSD_deploy.caffemodel', output:str=None, confidence:float=0.4):
+    global vs, data, subscribers, lock
     list_of_garages = api.get_garages()
     garage = next(garage for garage in list_of_garages if garage.name == 'Johnson')
     print(garage.name)
@@ -121,68 +150,66 @@ def gen_frames(prototxt:str='./mobilenet_ssd/MobileNetSSD_deploy.prototxt', mode
 
         # check to see if we should run a more computationally expensive
         # object detection method to aid our tracker
-        if totalFrames % skip_frames == 0:
-            # set the status and initialize our new set of object trackers
-            status = "Detecting"
-            trackers = []
+        # set the status and initialize our new set of object trackers
+        status = "Detecting"
+        trackers = []
 
-            # convert the frame to a blob and pass the blob through the
-            # network and obtain the detections
-            blob = cv2.dnn.blobFromImage(frame, 0.007843, (W, H), 127.5)
-            net.setInput(blob)
-            detections = net.forward()
+        # convert the frame to a blob and pass the blob through the
+        # network and obtain the detections
+        blob = cv2.dnn.blobFromImage(frame, 0.007843, (W, H), 127.5)
+        net.setInput(blob)
+        detections = net.forward()
 
-            # loop over the detections
-            for i in np.arange(0, detections.shape[2]):
-                # extract the confidence (i.e., probability) associated
-                # with the prediction
-                temp_confidence = detections[0, 0, i, 2]
+        # loop over the detections
+        for i in np.arange(0, detections.shape[2]):
+            # extract the confidence (i.e., probability) associated
+            # with the prediction
+            temp_confidence = detections[0, 0, i, 2]
 
-                # filter out weak detections by requiring a minimum
-                # confidence
-                if temp_confidence > confidence:
-                    # extract the index of the class label from the
-                    # detections list
-                    idx = int(detections[0, 0, i, 1])
+            # filter out weak detections by requiring a minimum
+            # confidence
+            if temp_confidence > confidence:
+                # extract the index of the class label from the
+                # detections list
+                idx = int(detections[0, 0, i, 1])
 
-                    # if the class label is not a car, ignore it
-                    if (CLASSES[idx] != "car"):
-                        continue
+                # if the class label is not a car, ignore it
+                if (CLASSES[idx] != "car"):
+                    continue
 
-                    # compute the (x, y)-coordinates of the bounding box
-                    # for the object
-                    box = detections[0, 0, i, 3:7] * np.array([W, H, W, H])
-                    (startX, startY, endX, endY) = box.astype("int")
+                # compute the (x, y)-coordinates of the bounding box
+                # for the object
+                box = detections[0, 0, i, 3:7] * np.array([W, H, W, H])
+                (startX, startY, endX, endY) = box.astype("int")
 
-                    # construct a dlib rectangle object from the bounding
-                    # box coordinates and then start the dlib correlation
-                    # tracker
-                    tracker = dlib.correlation_tracker()
-                    rect = dlib.rectangle(startX, startY, endX, endY)
-                    tracker.start_track(rgb, rect)
+                # construct a dlib rectangle object from the bounding
+                # box coordinates and then start the dlib correlation
+                # tracker
+                tracker = dlib.correlation_tracker()
+                rect = dlib.rectangle(startX, startY, endX, endY)
+                tracker.start_track(rgb, rect)
 
-                    # add the tracker to our list of trackers so we can
-                    # utilize it during skip frames
-                    trackers.append(tracker)
+                # add the tracker to our list of trackers so we can
+                # utilize it during skip frames
+                trackers.append(tracker)
         # loop over the trackers
-        else:
-          for tracker in trackers:
-            # set the status of our system to be 'tracking' rather
-            # than 'waiting' or 'detecting'
-            status = "Tracking"
+        for tracker in trackers:
+          # set the status of our system to be 'tracking' rather
+          # than 'waiting' or 'detecting'
+          status = "Tracking"
 
-            # update the tracker and grab the updated position
-            tracker.update(rgb)
-            pos = tracker.get_position()
+          # update the tracker and grab the updated position
+          tracker.update(rgb)
+          pos = tracker.get_position()
 
-            # unpack the position object
-            startX = int(pos.left())
-            startY = int(pos.top())
-            endX = int(pos.right())
-            endY = int(pos.bottom())
+          # unpack the position object
+          startX = int(pos.left())
+          startY = int(pos.top())
+          endX = int(pos.right())
+          endY = int(pos.bottom())
 
-            # add the bounding box coordinates to the rectangles list
-            rects.append((startX, startY, endX, endY))
+          # add the bounding box coordinates to the rectangles list
+          rects.append((startX, startY, endX, endY))
 
         # draw a horizontal line in the center of the frame -- once an
         # object crosses this line we will determine whether they were
@@ -225,8 +252,9 @@ def gen_frames(prototxt:str='./mobilenet_ssd/MobileNetSSD_deploy.prototxt', mode
                             to.counted = True
                             if available_spaces < garage.capacity:
                                 garage.cars_in_lot -= 1
-                                available_spaces += 1
                                 api.put_garage(garage)
+                                available_spaces += 1
+ 
 
                         # if the direction is positive (indicating the object
                         # is moving down) AND the centroid is below the
@@ -269,51 +297,55 @@ def gen_frames(prototxt:str='./mobilenet_ssd/MobileNetSSD_deploy.prototxt', mode
             cv2.putText(frame, text, (10, H - ((i * 20) + 20)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
-        # check to see if we should write the frame to disk
-        if writer is not None:
-            writer.write(frame)
-            
-        with lock:
-            outputFrame = frame.copy()
-            (flag, encodedImage) = cv2.imencode(".jpg", outputFrame)
-            if flag:
-                sio.emit('frame', encodedImage.tobytes())
+        # # check to see if we should write the frame to disk
+        # if writer is not None:
+        #     writer.write(frame)
+        flag, buffer = cv2.imencode('.jpg', frame)
+
+        if flag:
+            if lock.acquire(blocking=True):
+                for index in range(len(subscribers)):
+                    subscribers[index] = buffer
+                lock.release()
         # increment the total number of frames processed thus far
         totalFrames += 1
 
-    # check to see if we need to release the video writer pointer
-    if writer is not None:
-        writer.release()
-        
+@app.route('/')
+def index():
+  return redirect(url_for('video_feed'))
 
-# Uncomment for flask server integration
-# def generate():
-#   # grab global references to the output frame and lock variables
-#   global outputFrame, lock
-#   # loop over frames from the output stream
-#   while True:
-#     # wait until the lock is acquired
-#     with lock:
-#       # check if the output frame is available, otherwise skip
-#       # the iteration of the loop
-#       if outputFrame is None:
-#         continue
-#       # encode the frame in JPEG format
-#       (flag, encodedImage) = cv2.imencode(".jpg", outputFrame)
-#       # ensure the frame was successfully encoded
-#       if not flag:
-#         continue
-#     # yield the output frame in the byte format
-#     yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
-#       bytearray(encodedImage) + b'\r\n')
+def display_frame():
+    global subscribers, lock
+    temp = np.zeros((281, 500, 3), np.uint8)
+    # Encode as JPEG
+    _, buffer = cv2.imencode('.jpg', temp)
+    temp_bytes = buffer.tobytes()
+    localFrame = (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + temp_bytes + b'\r\n')
+    number = len(subscribers)
+    with lock:
+      subscribers.append(None)
+    try:
+        while True:
+            if lock.acquire(blocking=False):
+                  if subscribers[number] is None:
+                      yield localFrame
+                      lock.release()
+                      continue
+                  localFrame = (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + bytearray(subscribers[number]) + b'\r\n')
+                  lock.release()
+                  yield localFrame
+            else:
+                yield localFrame
+    except GeneratorExit:
+        with lock:
+            subscribers.pop(number)
+            print(f"Subscriber {number} removed")
+            print(f"Number of subscribers: {len(subscribers)}")
 
-# @app.route('/')
-# def index():
-#   return render_template('index.html')
-  
-# @app.route('/video_feed')
-# def video_feed():
-#   return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/video_feed')
+def video_feed():
+  return Response(display_frame(), mimetype='multipart/x-mixed-replace; boundary=frame')
  
 if __name__ == "__main__":
   # construct the argument parser and parse command line arguments
@@ -335,11 +367,9 @@ if __name__ == "__main__":
   else:
       print("[INFO] opening video file...")
       vs = cv2.VideoCapture(input)
-  t = threading.Thread(target=gen_frames)
-  t.daemon = True
+  t = threading.Thread(target=gen_frames, daemon=True)
   t.start()
   app.run(threaded=True, host='0.0.0.0', port=5000)
-  
 
 if vs is not None:
   if input:
